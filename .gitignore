@@ -1,0 +1,6 @@
+.idea
+.DS_Store
+*.pyc
+.venv
+.python-version
+tasks.db
