@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s 
+
+scrape_configs:
+  - job_name: 'web_api'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['web_api:8002']
+
+  - job_name: 'consumer'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['consumer:8002']

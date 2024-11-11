@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base
 
 from common.domain.models import TaskStatus
@@ -12,3 +14,4 @@ class TaskORM(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     payload = Column(String, nullable=False)
     status = Column(String, default=TaskStatus.PENDING.value, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)

@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from common.applications.use_case.consumer.task_processing import ProcessService, TaskProcessUseCase
+from common.applications.use_case.consumer.task_processing import TaskProcessUseCase
 from common.domain.models import Task, TaskStatus
 from common.domain.repo.task_repo import ITaskRepository, TaskNotFoundError
+from common.domain.services.prometheus_service import IPrometheusMetricsService
 
 
 class TestTaskProcessUseCase:
@@ -21,7 +22,9 @@ class TestTaskProcessUseCase:
         mock_repo.get_task.return_value = task
         mock_repo.update_task.return_value = None
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)
@@ -38,7 +41,9 @@ class TestTaskProcessUseCase:
 
         mock_repo = mocker.Mock(spec=ITaskRepository)
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)
@@ -54,7 +59,9 @@ class TestTaskProcessUseCase:
 
         mock_repo = mocker.Mock(spec=ITaskRepository)
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)
@@ -73,7 +80,9 @@ class TestTaskProcessUseCase:
         mock_repo = mocker.Mock(spec=ITaskRepository)
         mock_repo.get_task.side_effect = TaskNotFoundError
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)
@@ -93,7 +102,9 @@ class TestTaskProcessUseCase:
         mock_repo.get_task.return_value = task
         mock_repo.update_task.return_value = None
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)
@@ -116,7 +127,9 @@ class TestTaskProcessUseCase:
             update_task=mocker.AsyncMock(),
         )
 
-        use_case = TaskProcessUseCase(task_repository=mock_repo, process_service=ProcessService(sleep_time=0))
+        use_case = TaskProcessUseCase(
+            task_repository=mock_repo, sleep_time=0, metrics=mocker.Mock(spec=IPrometheusMetricsService)
+        )
 
         # Act
         await use_case.task_processing(message)

@@ -22,3 +22,13 @@ class ITaskRepository(ABC):
     async def update_task(self, domain_task: Task) -> None:
         """更新任務狀態"""
         pass
+
+    @abstractmethod
+    async def get_tasks_by_ids(self, task_ids: list[int]) -> list[Task]:
+        """batch get tasks by ids"""
+        pass
+
+    @abstractmethod
+    async def update_tasks(self, tasks: list[Task]) -> None:
+        """batch update tasks"""
+        pass

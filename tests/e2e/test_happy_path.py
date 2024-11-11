@@ -27,13 +27,13 @@ async def test_e2e_task_processing_happy_path(setup_test_env):
 
             if data["status"] == "PROCESSING":
                 break
-            await asyncio.sleep(1)  # 等待 100 毫秒再檢查一次
+            await asyncio.sleep(0.1)  # 等待 100 毫秒再檢查一次
         else:
             # 如果 1 秒內沒有達到 PROCESSING 狀態，測試失敗
             pytest.fail(f"Task did not reach 'PROCESSING' status within {wait_seconds} seconds")
 
         # 等待任務處理完成
-        await asyncio.sleep(MOCK_PROCESSING_TIME + 0.1)
+        await asyncio.sleep(MOCK_PROCESSING_TIME + 0.2)  # 新增 batch queue 的 timeout
 
         response = await ac.get(f"/tasks/{task_id}/status")
         assert response.status_code == 200

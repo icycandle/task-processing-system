@@ -12,6 +12,7 @@ class TaskPayload(BaseModel):
             raise ValueError("Payload cannot be empty or whitespace")
         return value
 
+
 class TaskResponse(BaseModel):
     task_id: int
     status: TaskStatus

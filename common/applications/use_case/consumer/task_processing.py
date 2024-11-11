@@ -1,66 +1,96 @@
 import asyncio
 import json
+from datetime import datetime
 
+from aio_pika import IncomingMessage
 from loguru import logger
 
 from common.constants import MOCK_PROCESSING_TIME
-from common.domain.models import TaskStatus
-from common.domain.repo.task_repo import ITaskRepository, TaskNotFoundError
+from common.domain.models import Task, TaskStatus
+from common.domain.repo.task_repo import ITaskRepository
+from common.domain.services.prometheus_service import IPrometheusMetricsService
 
 rabbitmq_connected = False
 routing_key = "task_queue"
-
-
-class ProcessService:
-    def __init__(self, sleep_time: int = MOCK_PROCESSING_TIME):
-        self.sleep_time = sleep_time
-
-    async def run(self):
-        await asyncio.sleep(self.sleep_time)
 
 
 class TaskProcessUseCase:
     def __init__(
         self,
         task_repository: ITaskRepository,
-        process_service: ProcessService | None = None,
+        metrics: IPrometheusMetricsService,
+        sleep_time: float = MOCK_PROCESSING_TIME,
     ):
         self.repo = task_repository
+        self.metrics = metrics
 
-        self.process_service = process_service if process_service else ProcessService()
+        self.sleep_time = sleep_time
 
-    async def task_processing(self, message):
-        logger.info(f"收到消息: {message.body}")
+    async def task_processing(self, task: Task) -> int | None:
+        """避免在這 method 直接進行 database query"""
+        started_processing_at = datetime.now().timestamp()
 
-        try:
-            message_content = json.loads(message.body)
-            task_id = message_content["task_id"]
-        except Exception as e:
-            logger.exception(e)
+        await self.metrics.inc_label("received")
+        logger.info(f"開始處理任務: {task.id}")
+
+        if task.status != TaskStatus.PENDING:
+            logger.warning(f"跳過非 PENDING 狀態的任務 {task.id}")
             return
 
-        logger.info(f"處理任務 ID: {task_id}")
 
-        try:
-            domain_task = await self.repo.get_task(task_id)
-            logger.info(f"從資料庫獲取任務 {task_id=} 狀態: {domain_task.status}")
-        except TaskNotFoundError:
-            logger.error(f"任務 {task_id=} 不存在")
+        task.mark_processing()
+        await self.repo.update_task(task)
+
+        await asyncio.sleep(self.sleep_time)
+
+        if task.status == TaskStatus.CANCELED:
             return
 
-        logger.info(f"{domain_task.status=}")
+        task.mark_completed()
 
-        if not domain_task or domain_task.status != TaskStatus.PENDING:
-            return
+        end_processing_at = datetime.now().timestamp()
+        processing_duration = end_processing_at - started_processing_at
+        self.metrics.observe_processing_time(processing_duration)
 
-        domain_task.mark_processing()
-        await self.repo.update_task(domain_task)
+        execution_duration = end_processing_at - task.created_at.timestamp()
+        self.metrics.observe_execution_time(execution_duration)
+        await self.metrics.inc_label("success")
 
-        # Processing
-        await self.process_service.run()
+        return task.id
 
-        # update
-        domain_task = await self.repo.get_task(task_id)
-        if domain_task.status != TaskStatus.CANCELED:
-            domain_task.mark_completed()
-            await self.repo.update_task(domain_task)
+
+    # TODO: 介面上出現 `IncomingMessage` 不太合適，應該移往 infra 或 main.py, 只需要接受 task_ids 並回傳 success_task_ids
+    async def process_batch(self, messages: list[IncomingMessage]) -> list[int]:
+        """
+        目前效能瓶頸是 database IO, 透過 batch query & batch update 來減少 database IO
+
+        """
+        task_ids: list[int] = []
+        for message in messages:
+            try:
+                message_content = json.loads(message.body)
+                task_id = message_content["task_id"]
+                task_ids.append(task_id)
+            except Exception as e:
+                logger.exception(f"解析消息時出現錯誤: {e}")
+                continue
+
+        tasks = await self.repo.get_tasks_by_ids(task_ids)
+
+        # 發揮 async 的 concurrency 優勢
+        processing_tasks = [self.task_processing(task) for task in tasks]
+        completed_tasks = await asyncio.gather(*processing_tasks, return_exceptions=True)
+
+        await self.repo.update_tasks(tasks)
+
+        success_task_ids = []
+        for message, result in zip(messages, completed_tasks):
+            if isinstance(result, Exception):
+                continue
+
+            if isinstance(result, int):
+                continue
+
+            success_task_ids.append(result)
+
+        return success_task_ids

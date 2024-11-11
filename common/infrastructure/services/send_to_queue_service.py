@@ -17,6 +17,10 @@ class SendToQueueService(ISendToQueueService):
         self.channel = None
 
     async def connect(self, max_retries=5, retry_delay=2):
+        # Reuse connection
+        if self.connection and not self.connection.is_closed:
+            return
+
         for attempt in range(max_retries):
             try:
                 logger.info("Establishing RabbitMQ connection...")
@@ -26,7 +30,7 @@ class SendToQueueService(ISendToQueueService):
             except AMQPConnectionError as e:
                 logger.error(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay * (2 ** attempt))
+                    await asyncio.sleep(retry_delay * (2**attempt))
                 else:
                     raise
 
@@ -43,7 +47,7 @@ class SendToQueueService(ISendToQueueService):
             except Exception as e:
                 logger.error(f"Publish attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay * (2 ** attempt))
+                    await asyncio.sleep(retry_delay * (2**attempt))
                 else:
                     raise
 

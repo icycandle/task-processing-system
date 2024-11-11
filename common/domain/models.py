@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 
 from loguru import logger
@@ -19,6 +20,8 @@ class Task(BaseModel):
     id: int | None = Field(None)
     payload: str = Field(..., min_length=1)
     status: TaskStatus = Field(TaskStatus.PENDING)
+
+    created_at: datetime | None = Field(None)
 
     @field_validator("payload")
     def validate_payload(cls, v):

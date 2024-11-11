@@ -37,6 +37,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error"},
     )
 
+
 @app.post("/tasks", response_model=TaskResponse)
 async def create_task(
     task_payload: TaskPayload,
