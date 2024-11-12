@@ -1,7 +1,7 @@
 services:
   web_api:
     build: .
-    command: poetry run uvicorn web_api.main:app --host 0.0.0.0 --port 8000
+    command: poetry run uvicorn --factory web_api.main:create_app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     depends_on:

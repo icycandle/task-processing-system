@@ -31,7 +31,7 @@ class TaskProcessUseCase:
 
     async def task_processing(self, task: Task) -> int:
         """
-            回傳 task.id 會避免 Message 被 requeue
+        回傳 task.id 會避免 Message 被 requeue
         """
         started_processing_at = datetime.now().timestamp()
 
