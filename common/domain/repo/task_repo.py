@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from common.domain.models import Task
 
 
+@dataclass
 class TaskNotFoundError(Exception):
-    task_id: str
+    task_id: int
 
 
 class ITaskRepository(ABC):

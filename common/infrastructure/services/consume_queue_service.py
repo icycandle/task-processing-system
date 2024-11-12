@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from typing import AsyncIterator, Callable, Coroutine
+from typing import AsyncIterator
 
 import aio_pika
 from aiormq import AMQPConnectionError
@@ -9,8 +9,6 @@ from loguru import logger
 
 BATCH_SIZE = 32
 BATCH_TIMEOUT = 0.1  # seconds
-
-
 
 
 async def batch_generator(

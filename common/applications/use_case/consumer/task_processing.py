@@ -9,6 +9,7 @@ from common.constants import MOCK_PROCESSING_TIME
 from common.domain.models import Task, TaskStatus
 from common.domain.repo.task_repo import ITaskRepository
 from common.domain.services.prometheus_service import IPrometheusMetricsService
+from common.domain.services.task_cancellation_cache import ITaskCancellationCache
 
 rabbitmq_connected = False
 routing_key = "task_queue"
@@ -19,15 +20,19 @@ class TaskProcessUseCase:
         self,
         task_repository: ITaskRepository,
         metrics: IPrometheusMetricsService,
+        cancellation_cache: ITaskCancellationCache,
         sleep_time: float = MOCK_PROCESSING_TIME,
     ):
         self.repo = task_repository
         self.metrics = metrics
+        self.cancellation_cache = cancellation_cache
 
         self.sleep_time = sleep_time
 
-    async def task_processing(self, task: Task) -> int | None:
-        """避免在這 method 直接進行 database query"""
+    async def task_processing(self, task: Task) -> int:
+        """
+            回傳 task.id 會避免 Message 被 requeue
+        """
         started_processing_at = datetime.now().timestamp()
 
         await self.metrics.inc_label("received")
@@ -35,16 +40,26 @@ class TaskProcessUseCase:
 
         if task.status != TaskStatus.PENDING:
             logger.warning(f"跳過非 PENDING 狀態的任務 {task.id}")
-            return
+            return task.id
 
+        # 檢查任務是否被取消
+        if await self.cancellation_cache.is_task_cancelled(task.id):
+            logger.info(f"任務 {task.id} 已被取消，停止處理")
+            task.cancel()
+            await self.repo.update_task(task)
+            return task.id
 
         task.mark_processing()
         await self.repo.update_task(task)
 
         await asyncio.sleep(self.sleep_time)
 
-        if task.status == TaskStatus.CANCELED:
-            return
+        # 檢查任務是否被取消
+        if await self.cancellation_cache.is_task_cancelled(task.id):
+            logger.info(f"任務 {task.id} 在處理過程中被取消")
+            task.cancel()
+            await self.repo.update_task(task)
+            return task.id
 
         task.mark_completed()
 
@@ -57,7 +72,6 @@ class TaskProcessUseCase:
         await self.metrics.inc_label("success")
 
         return task.id
-
 
     # TODO: 介面上出現 `IncomingMessage` 不太合適，應該移往 infra 或 main.py, 只需要接受 task_ids 並回傳 success_task_ids
     async def process_batch(self, messages: list[IncomingMessage]) -> list[int]:
@@ -88,7 +102,7 @@ class TaskProcessUseCase:
             if isinstance(result, Exception):
                 continue
 
-            if isinstance(result, int):
+            if not isinstance(result, int):
                 continue
 
             success_task_ids.append(result)

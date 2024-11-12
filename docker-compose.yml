@@ -8,8 +8,10 @@ services:
       - rabbitmq
       - postgres
       - prometheus
+      - redis
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres/tasks_db
+      - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
@@ -23,8 +25,10 @@ services:
       - rabbitmq
       - postgres
       - prometheus
+      - redis
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres/tasks_db
+      - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=DEBUG
@@ -38,6 +42,12 @@ services:
     ports:
       - "5432:5432"
 
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    command: ["redis-server"]
+
   alembic:
     build: .
     command: bash /app/wait-for-it.sh postgres:5432 -t 15 -- poetry run alembic upgrade head
@@ -49,7 +59,6 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./wait-for-it.sh:/app/wait-for-it.sh
-
 
   rabbitmq:
     image: rabbitmq:3-management

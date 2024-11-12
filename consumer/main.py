@@ -7,7 +7,11 @@ from sqlalchemy import text
 
 from common.applications.use_case.consumer.task_processing import TaskProcessUseCase
 from common.infrastructure.database import get_db
-from common.infrastructure.dependencies import get_consume_queue_service, get_prometheus_metrics_service
+from common.infrastructure.dependencies import (
+    get_consume_queue_service,
+    get_prometheus_metrics_service,
+    get_task_cancellation_cache,
+)
 from common.infrastructure.repo.task_repo import TaskRepository
 
 app = FastAPI()
@@ -17,19 +21,19 @@ app = FastAPI()
 async def lifespan(app: FastAPI):
     consume_queue_service = get_consume_queue_service()
     metrics_service = get_prometheus_metrics_service()
+    cancellation_cache = get_task_cancellation_cache()
 
     async for session in get_db():
         task_repository = TaskRepository(db_session=session)
         task_process_use_case = TaskProcessUseCase(
             task_repository=task_repository,
             metrics=metrics_service,
+            cancellation_cache=cancellation_cache,
         )
 
         # Pass `task_process_use_case.process_batch` as the batch handler function
         consumer_task = asyncio.create_task(
-            consume_queue_service.consume(
-                handler_function=task_process_use_case.process_batch
-            )
+            consume_queue_service.consume(handler_function=task_process_use_case.process_batch)
         )
 
         yield
