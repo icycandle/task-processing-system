@@ -67,6 +67,7 @@ services:
       - "15672:15672"
     environment:
       - RABBITMQ_CONFIG_FILE=/etc/rabbitmq/rabbitmq.conf
+      - RABBITMQ_VM_MEMORY_HIGH_WATERMARK_ABSOLUTE=512MB
     volumes:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
 

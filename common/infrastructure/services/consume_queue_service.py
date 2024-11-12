@@ -68,7 +68,10 @@ class ConsumeQueueService:
 
     async def consume(self, handler_function: callable):
         await self.connect()
-        queue = await self.channel.declare_queue(self.routing_key, durable=True)
+        queue = await self.channel.declare_queue(
+            self.routing_key,
+            # durable=True,  # 犧牲持久性，增加 throughput
+        )
         logger.info("Waiting for messages...")
 
         async for batch in batch_generator(queue.iterator(), BATCH_SIZE, BATCH_TIMEOUT):
